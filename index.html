@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RM Dashboard — รพ.บ้านเหลื่อม</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#F4F5F7;color:#1a1a1a;font-size:14px;min-height:100vh}
+
+/* ── Setup Screen ── */
+#setup{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.setup-card{background:#fff;border-radius:16px;border:1px solid #e0e0e0;padding:2.5rem;max-width:500px;width:100%}
+.setup-card h1{font-size:20px;font-weight:600;margin-bottom:6px;color:#1a1a1a}
+.setup-card p{color:#666;font-size:13px;margin-bottom:1.5rem;line-height:1.6}
+.setup-card label{display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.setup-card input{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:13px;color:#1a1a1a;background:#fafafa;margin-bottom:1rem}
+.setup-card input:focus{outline:none;border-color:#378ADD;background:#fff}
+.btn-primary{width:100%;padding:12px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+.btn-primary:hover{background:#0C447C}
+.demo-btn{width:100%;padding:10px;background:transparent;color:#185FA5;border:1px solid #185FA5;border-radius:8px;font-size:13px;cursor:pointer;margin-top:8px}
+.demo-btn:hover{background:#E6F1FB}
+.step-hint{font-size:11px;color:#888;margin-top:6px;line-height:1.5}
+
+/* ── App Shell ── */
+#app{display:none}
+.topbar{background:#fff;border-bottom:1px solid #e8e8e8;padding:0 20px;display:flex;align-items:center;gap:12px;height:52px;position:sticky;top:0;z-index:100}
+.topbar h1{font-size:15px;font-weight:600;flex:1;color:#1a1a1a}
+.topbar-meta{font-size:11px;color:#999}
+.refresh-btn{padding:6px 12px;background:#EAF3DE;color:#3B6D11;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px}
+.refresh-btn:hover{background:#C0DD97}
+.refresh-btn.loading{opacity:.6;pointer-events:none}
+
+.main{padding:16px 20px;max-width:1100px;margin:0 auto}
+
+/* ── Filters ── */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.filter-row select{padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;background:#fff;color:#1a1a1a;cursor:pointer}
+.filter-row select:focus{outline:none;border-color:#378ADD}
+
+/* ── Metric cards ── */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.mc{background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e8e8e8}
+.mc-label{font-size:11px;color:#888;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.mc-num{font-size:28px;font-weight:600;line-height:1}
+.mc-sub{font-size:11px;color:#999;margin-top:4px}
+.mc.danger .mc-num{color:#A32D2D}
+.mc.warning .mc-num{color:#854F0B}
+.mc.success .mc-num{color:#3B6D11}
+.mc.info .mc-num{color:#185FA5}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:2px;margin-bottom:14px;background:#f0f0f0;border-radius:9px;padding:3px;width:fit-content}
+.tab{padding:7px 16px;border-radius:7px;font-size:13px;cursor:pointer;color:#666;border:none;background:transparent;font-weight:500}
+.tab.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+/* ── Tables ── */
+.table-wrap{background:#fff;border-radius:10px;border:1px solid #e8e8e8;overflow:hidden;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{background:#fafafa;padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #eee;text-transform:uppercase;letter-spacing:.04em}
+td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#1a1a1a;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+
+/* ── Progress bar ── */
+.pbar-wrap{display:flex;align-items:center;gap:7px}
+.pbar-bg{flex:1;height:5px;background:#eee;border-radius:3px;overflow:hidden;min-width:60px}
+.pbar-fill{height:100%;border-radius:3px}
+.pbar-pct{font-size:11px;color:#666;min-width:32px;text-align:right}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-red{background:#FCEBEB;color:#791F1F}
+.badge-orange{background:#FFF3E0;color:#854F0B}
+.badge-amber{background:#FAEEDA;color:#633806}
+.badge-blue{background:#E6F1FB;color:#0C447C}
+.badge-green{background:#EAF3DE;color:#27500A}
+.badge-purple{background:#EEEDFE;color:#3C3489}
+.badge-gray{background:#F1EFE8;color:#444441}
+
+/* ── Case cards ── */
+.case-list{display:grid;gap:8px}
+.ccard{background:#fff;border-radius:10px;border:1px solid #e8e8e8;border-left:4px solid #ddd;padding:12px 14px}
+.ccard.risk-f,.ccard.risk-g{border-left-color:#E24B4A}
+.ccard.risk-e{border-left-color:#D85A30}
+.ccard.risk-d{border-left-color:#EF9F27}
+.ccard.risk-c{border-left-color:#378ADD}
+.ccard.risk-b{border-left-color:#1D9E75}
+.ccard.risk-a,.ccard.risk-n{border-left-color:#7F77DD}
+.ccard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
+.ccard-title{font-size:13px;font-weight:500;color:#1a1a1a;flex:1}
+.ccard-meta{font-size:11px;color:#999;line-height:1.6}
+
+/* ── Chart ── */
+.chart-wrap{position:relative;width:100%;height:220px;background:#fff;border-radius:10px;border:1px solid #e8e8e8;padding:14px;margin-bottom:16px}
+
+/* ── Empty/Loading states ── */
+.state-box{padding:40px;text-align:center;color:#aaa;font-size:13px}
+.spin{display:inline-block;width:20px;height:20px;border:2px solid #ddd;border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:#FCEBEB;border-radius:8px;padding:12px 14px;color:#791F1F;font-size:13px;margin-bottom:12px;line-height:1.6}
+
+/* ── Alert banner ── */
+.urgent-banner{background:#FCEBEB;border:1px solid #F09595;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.urgent-banner-icon{font-size:20px}
+.urgent-banner-text{flex:1;font-size:13px;color:#791F1F;font-weight:500}
+.urgent-banner a{color:#791F1F;text-decoration:underline;font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- ── Setup Screen ── -->
+<div id="setup">
+  <div class="setup-card">
+    <h1>RM Dashboard ตั้งค่าครั้งแรก</h1>
+    <p>กรอก URL ของ Google Apps Script Web App ที่ Deploy แล้ว<br>เพื่อให้ Dashboard ดึงข้อมูลจาก Google Sheets แบบ Real-time</p>
+    <label>Web App URL</label>
+    <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <p class="step-hint">วิธีได้ URL: Apps Script → Deploy → New deployment → Web app → Copy URL</p>
+    <button class="btn-primary" onclick="saveAndConnect()">เชื่อมต่อ</button>
+    <button class="demo-btn" onclick="loadDemo()">ทดลองใช้ด้วยข้อมูลตัวอย่าง (Demo)</button>
+  </div>
+</div>
+
+<!-- ── Main App ── -->
+<div id="app">
+  <div class="topbar">
+    <h1>RM Dashboard — รพ.บ้านเหลื่อม</h1>
+    <span class="topbar-meta" id="updatedAt">—</span>
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchData()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      รีเฟรช
+    </button>
+    <button style="padding:6px 12px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:12px;cursor:pointer" onclick="resetSetup()">เปลี่ยน URL</button>
+  </div>
+
+  <div class="main">
+    <div id="errorBox" class="error-box" style="display:none"></div>
+    <div id="urgentBanner" style="display:none" class="urgent-banner">
+      <div class="urgent-banner-icon">🚨</div>
+      <div class="urgent-banner-text" id="urgentText"></div>
+    </div>
+
+    <div class="filter-row">
+      <select id="fDept" onchange="render()"><option value="">ทุกหน่วยงาน</option></select>
+      <select id="fRisk" onchange="render()">
+        <option value="">ทุกระดับความเสี่ยง</option>
+        <option value="F">F — อันตราย+นอนรพ.</option>
+        <option value="E">E — อันตราย+รักษา</option>
+        <option value="D">D — ต้องเฝ้าระวัง</option>
+        <option value="C">C — คลาดเคลื่อน ไม่อันตราย</option>
+        <option value="B">B — ไม่ถึงผู้ป่วย</option>
+        <option value="A">A — เสี่ยงคลาดเคลื่อน</option>
+        <option value="Non">Non-Clinical</option>
+      </select>
+      <select id="fView" onchange="render()">
+        <option value="pending">เฉพาะค้างทบทวน</option>
+        <option value="all">ทั้งหมด</option>
+      </select>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('dept',this)">แยกหน่วยงาน</button>
+      <button class="tab" onclick="switchTab('risk',this)">ระดับความเสี่ยง</button>
+      <button class="tab" onclick="switchTab('cases',this)">รายการเคส</button>
+    </div>
+
+    <div id="view-dept">
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="chartDept" role="img" aria-label="Bar chart เคสค้างทบทวนแยกตามหน่วยงาน">เคสค้างทบทวนแยกหน่วยงาน</canvas>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <colgroup><col style="width:36%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:28%"></colgroup>
+          <thead><tr><th>หน่วยงานที่เกิด</th><th>ทั้งหมด</th><th>ค้างทบทวน</th><th>ทบทวนแล้ว</th><th>% ทบทวน</th></tr></thead>
+          <tbody id="deptTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="view-risk" style="display:none">
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="chartRisk" role="img" aria-label="Bar chart เคสแยกตามระดับความเสี่ยง">เคสแยกระดับความเสี่ยง</canvas>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <colgroup><col style="width:36%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:16%"></colgroup>
+          <thead><tr><th>ระดับ</th><th>ทั้งหมด</th><th>ค้างทบทวน</th><th>ทบทวนแล้ว</th><th>% ทบทวน</th></tr></thead>
+          <tbody id="riskTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="view-cases" style="display:none">
+      <p style="font-size:12px;color:#999;margin-bottom:10px" id="caseCount"></p>
+      <div class="case-list" id="caseList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let API_URL = '';
+let RAW_DATA = null;
+let chartDept = null, chartRisk = null;
+let currentTab = 'dept';
+
+const RISK_ORDER = {F:0,G:1,E:2,D:3,C:4,B:5,A:6,N:7};
+function riskPrefix(s){ return s ? s.trim().charAt(0).toUpperCase() : 'N'; }
+function riskOrder(s){ const p=riskPrefix(s); return RISK_ORDER[p]??8; }
+
+function riskBadge(riskRaw){
+  const p = riskPrefix(riskRaw);
+  const cls = ['F','G'].includes(p)?'badge-red': p==='E'?'badge-orange': p==='D'?'badge-amber': p==='C'?'badge-blue': p==='B'?'badge-green': p==='A'?'badge-purple':'badge-gray';
+  const label = riskRaw.startsWith('Non') ? riskRaw.replace('Non Clinical ','NC ') : (p==='N'?'NC':p);
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function pbarHtml(pct){
+  const color = pct>=80?'#1D9E75': pct>=50?'#EF9F27':'#E24B4A';
+  return `<div class="pbar-wrap"><div class="pbar-bg"><div class="pbar-fill" style="width:${Math.round(pct)}%;background:${color}"></div></div><span class="pbar-pct">${Math.round(pct)}%</span></div>`;
+}
+
+// ── Demo data ────────────────────────────────────────────
+const DEMO = {ok:true,updatedAt:'ข้อมูลตัวอย่าง',summary:{total:88,pending:24,reviewed:64,highPending:7,urgent:2},
+byDept:{
+  'ตึกผู้ป่วยใน Ward':{total:34,reviewed:18,pending:16,highPending:4,urgentPending:1},
+  'ห้องอุบัติเหตุและฉุกเฉิน':{total:18,reviewed:14,pending:4,highPending:1,urgentPending:0},
+  'ห้องจ่ายยาผู้ป่วยนอก':{total:14,reviewed:11,pending:3,highPending:0,urgentPending:0},
+  'จุดคัดกรอง':{total:8,reviewed:6,pending:2,highPending:1,urgentPending:1},
+  'ห้องบัตรเวชระเบียน':{total:5,reviewed:4,pending:1,highPending:0,urgentPending:0},
+  'ห้องผู้ป่วยนอก':{total:5,reviewed:4,pending:1,highPending:1,urgentPending:0},
+  'งานทันตกรรม':{total:4,reviewed:4,pending:0,highPending:0,urgentPending:0},
+},
+pendingCases:[
+  {dept:'ตึกผู้ป่วยใน Ward',risk:'F: เกิดความคลาดเคลื่อน ส่งผลให้นอนรพ.',topic:'ผู้ป่วยตกเตียง',eventDate:'11/10/2025',isHighRisk:true,isUrgent:true},
+  {dept:'จุดคัดกรอง',risk:'F: เกิดความคลาดเคลื่อน ส่งผลให้นอนรพ.',topic:'Under triage — ผู้ป่วยถูก refer ด้วย ET tube',eventDate:'13/1/2026',isHighRisk:true,isUrgent:true},
+  {dept:'ตึกผู้ป่วยใน Ward',risk:'D: เกิดความคลาดเคลื่อน ต้องเฝ้าระวัง',topic:'โทร consult แพทย์เวร ไม่รับสาย — sepsis',eventDate:'8/1/2026',isHighRisk:true,isUrgent:false},
+  {dept:'ห้องผู้ป่วยนอก',risk:'D: เกิดความคลาดเคลื่อน ต้องเฝ้าระวัง',topic:'รายงานผล EKG ล่าช้า',eventDate:'20/10/2025',isHighRisk:true,isUrgent:false},
+  {dept:'ห้องอุบัติเหตุและฉุกเฉิน',risk:'D: เกิดความคลาดเคลื่อน ต้องเฝ้าระวัง',topic:'Admit ใหม่ HR เร็ว chest pain ไม่ทำ EKG',eventDate:'22/10/2025',isHighRisk:true,isUrgent:false},
+  {dept:'ตึกผู้ป่วยใน Ward',risk:'C: เกิดความคลาดเคลื่อน ไม่อันตราย',topic:'ผสมยา KCL ผิด dose',eventDate:'18/1/2026',isHighRisk:false,isUrgent:false},
+  {dept:'ตึกผู้ป่วยใน Ward',risk:'C: เกิดความคลาดเคลื่อน ไม่อันตราย',topic:'ไม่แจ้ง lab วิกฤติ trop-I',eventDate:'19/1/2026',isHighRisk:false,isUrgent:false},
+  {dept:'ห้องบัตรเวชระเบียน',risk:'Non Clinical 1',topic:'แก้ไขชื่อเด็กแรกเกิดโดยไม่ใช้ใบสูติบัตร',eventDate:'5/1/2026',isHighRisk:false,isUrgent:false},
+]};
+
+// ── Init ─────────────────────────────────────────────────
+window.onload = function(){
+  const saved = localStorage.getItem('rm_api_url');
+  if(saved){ API_URL=saved; showApp(); fetchData(); }
+};
+
+function saveAndConnect(){
+  const url = document.getElementById('apiUrl').value.trim();
+  if(!url){ alert('กรุณากรอก URL ก่อน'); return; }
+  API_URL = url;
+  localStorage.setItem('rm_api_url', url);
+  showApp();
+  fetchData();
+}
+
+function loadDemo(){
+  API_URL = 'demo';
+  showApp();
+  ingestData(DEMO);
+}
+
+function showApp(){
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').style.display='block';
+}
+
+function resetSetup(){
+  localStorage.removeItem('rm_api_url');
+  API_URL='';
+  RAW_DATA=null;
+  document.getElementById('setup').style.display='flex';
+  document.getElementById('app').style.display='none';
+}
+
+// ── Fetch ────────────────────────────────────────────────
+async function fetchData(){
+  if(API_URL==='demo'){ ingestData(DEMO); return; }
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  btn.textContent = 'กำลังโหลด...';
+  document.getElementById('errorBox').style.display='none';
+  try{
+    const res = await fetch(API_URL, {redirect:'follow'});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if(!json.ok) throw new Error('Script ตอบกลับ ok:false');
+    ingestData(json);
+  } catch(err){
+    document.getElementById('errorBox').style.display='block';
+    document.getElementById('errorBox').innerHTML=`<b>ดึงข้อมูลไม่ได้:</b> ${err.message}<br><small>ตรวจสอบ URL และตรวจสอบว่า Deploy แบบ "Anyone can access" แล้ว</small>`;
+  } finally{
+    btn.classList.remove('loading');
+    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg> รีเฟรช';
+  }
+}
+
+function ingestData(json){
+  RAW_DATA = json;
+  document.getElementById('updatedAt').textContent = 'อัปเดต: ' + json.updatedAt;
+
+  // Populate dept filter
+  const sel = document.getElementById('fDept');
+  sel.innerHTML = '<option value="">ทุกหน่วยงาน</option>';
+  Object.keys(json.byDept).forEach(d=>{
+    const opt=document.createElement('option'); opt.value=d; opt.textContent=d; sel.appendChild(opt);
+  });
+
+  // Urgent banner
+  if(json.summary.urgent>0){
+    document.getElementById('urgentBanner').style.display='flex';
+    document.getElementById('urgentText').textContent=`มีเคสระดับวิกฤต (F/G) ค้างทบทวน ${json.summary.urgent} ราย — กรุณาทบทวนโดยเร่งด่วน`;
+  } else {
+    document.getElementById('urgentBanner').style.display='none';
+  }
+  render();
+}
+
+// ── Filter ───────────────────────────────────────────────
+function getFiltered(){
+  if(!RAW_DATA) return {cases:[],byDept:{}};
+  const fDept = document.getElementById('fDept').value;
+  const fRisk = document.getElementById('fRisk').value;
+  const fView = document.getElementById('fView').value;
+
+  let cases = RAW_DATA.pendingCases || [];
+  if(fView==='all'){
+    // build "all" from byDept totals — we don't have full case list for reviewed ones from API
+    // just show pending as subset
+  }
+  if(fDept) cases = cases.filter(c=>c.dept===fDept);
+  if(fRisk){
+    cases = cases.filter(c=>{
+      const p = riskPrefix(c.risk);
+      if(fRisk==='Non') return c.risk.startsWith('Non');
+      return p===fRisk;
+    });
+  }
+
+  // byDept filtered
+  let byDept = RAW_DATA.byDept;
+  if(fDept){ const tmp={}; tmp[fDept]=byDept[fDept]||{total:0,reviewed:0,pending:0,highPending:0,urgentPending:0}; byDept=tmp; }
+
+  return {cases, byDept};
+}
+
+// ── Render ───────────────────────────────────────────────
+function render(){
+  if(!RAW_DATA) return;
+  const {cases, byDept} = getFiltered();
+  const s = RAW_DATA.summary;
+
+  // Metrics
+  document.getElementById('metrics').innerHTML=`
+    <div class="mc info"><div class="mc-label">ทั้งหมด</div><div class="mc-num">${s.total}</div><div class="mc-sub">เคสทั้งหมด</div></div>
+    <div class="mc danger"><div class="mc-label">ค้างทบทวน</div><div class="mc-num">${s.pending}</div><div class="mc-sub">รายการ</div></div>
+    <div class="mc ${s.urgent>0?'danger':'warning'}"><div class="mc-label">ความเสี่ยงสูง</div><div class="mc-num">${s.highPending}</div><div class="mc-sub">D/E/F ยังค้าง</div></div>
+    <div class="mc success"><div class="mc-label">ทบทวนแล้ว</div><div class="mc-num">${s.reviewed}</div><div class="mc-sub">${s.total?Math.round(s.reviewed/s.total*100):0}% ของทั้งหมด</div></div>
+  `;
+
+  if(currentTab==='dept') renderDept(byDept);
+  if(currentTab==='risk') renderRisk();
+  if(currentTab==='cases') renderCases(cases);
+}
+
+function renderDept(byDept){
+  const sorted = Object.entries(byDept).sort((a,b)=>b[1].pending-a[1].pending);
+
+  // Table
+  document.getElementById('deptTable').innerHTML = sorted.map(([dept,d])=>{
+    const pct = d.total ? Math.round(d.reviewed/d.total*100) : 0;
+    const pendStyle = d.pending>0 ? 'color:#A32D2D;font-weight:600' : 'color:#3B6D11';
+    return `<tr>
+      <td title="${dept}">${dept}</td>
+      <td>${d.total}</td>
+      <td style="${pendStyle}">${d.pending}</td>
+      <td>${d.reviewed}</td>
+      <td>${pbarHtml(pct)}</td>
+    </tr>`;
+  }).join('');
+
+  // Chart
+  const top = sorted.slice(0,10);
+  const labels = top.map(([d])=> d.length>12 ? d.slice(0,12)+'…' : d);
+  const pendVals = top.map(([,d])=>d.pending);
+  const doneVals = top.map(([,d])=>d.reviewed);
+
+  if(chartDept) chartDept.destroy();
+  chartDept = new Chart(document.getElementById('chartDept'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'ค้างทบทวน',data:pendVals,backgroundColor:'#E24B4A',borderRadius:3},
+      {label:'ทบทวนแล้ว',data:doneVals,backgroundColor:'#1D9E75',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{stacked:true,ticks:{color:'#888',font:{size:11}},grid:{display:false}},
+        y:{stacked:true,ticks:{color:'#888',font:{size:11},stepSize:5},grid:{color:'rgba(0,0,0,.05)'}}
+      }
+    }
+  });
+}
+
+function renderRisk(){
+  const cases = RAW_DATA.pendingCases||[];
+  const allByDept = RAW_DATA.byDept||{};
+  const totalReviewed = RAW_DATA.summary.reviewed;
+  const totalAll = RAW_DATA.summary.total;
+
+  const RISKS=[
+    {key:'F',label:'F (วิกฤต)',color:'#E24B4A'},
+    {key:'E',label:'E (อันตราย+รักษา)',color:'#D85A30'},
+    {key:'D',label:'D (เฝ้าระวัง)',color:'#EF9F27'},
+    {key:'C',label:'C (คลาดเคลื่อน)',color:'#378ADD'},
+    {key:'B',label:'B (ไม่ถึงผู้ป่วย)',color:'#1D9E75'},
+    {key:'A',label:'A (เสี่ยง)',color:'#7F77DD'},
+    {key:'Non',label:'Non-Clinical',color:'#888780'},
+  ];
+
+  const pendByRisk = {};
+  cases.forEach(c=>{
+    const p = c.risk.startsWith('Non')?'Non':riskPrefix(c.risk);
+    pendByRisk[p]=(pendByRisk[p]||0)+1;
+  });
+
+  // Approximate totals from summary (we only have pending detail per case)
+  // Show what we have
+  const rows = RISKS.map(r=>({...r, pending: pendByRisk[r.key]||0}));
+
+  // Chart
+  if(chartRisk) chartRisk.destroy();
+  chartRisk = new Chart(document.getElementById('chartRisk'),{
+    type:'bar',
+    data:{
+      labels: rows.map(r=>r.label),
+      datasets:[{label:'ค้างทบทวน',data:rows.map(r=>r.pending),backgroundColor:rows.map(r=>r.color),borderRadius:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#888',font:{size:11},maxRotation:30},grid:{display:false}},
+        y:{ticks:{color:'#888',font:{size:11},stepSize:1},grid:{color:'rgba(0,0,0,.05)'}}
+      }
+    }
+  });
+
+  // Table
+  document.getElementById('riskTable').innerHTML = rows.map(r=>{
+    const pendStyle = r.pending>0?'color:#A32D2D;font-weight:600':'color:#999';
+    return `<tr>
+      <td>${riskBadge(r.key==='Non'?'Non Clinical':r.key+':')} ${r.label}</td>
+      <td>—</td>
+      <td style="${pendStyle}">${r.pending}</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCases(cases){
+  const sorted = [...cases].sort((a,b)=>riskOrder(a.risk)-riskOrder(b.risk));
+  document.getElementById('caseCount').textContent = `แสดง ${sorted.length} รายการ เรียงตามความรุนแรง`;
+
+  if(sorted.length===0){
+    document.getElementById('caseList').innerHTML='<div class="state-box">ไม่มีเคสค้างในเงื่อนไขนี้</div>';
+    return;
+  }
+
+  const cls = r => {
+    const p=riskPrefix(r.risk);
+    return ['F','G'].includes(p)?'risk-f': p==='E'?'risk-e': p==='D'?'risk-d': p==='C'?'risk-c': p==='B'?'risk-b': p==='A'?'risk-a':'risk-n';
+  };
+
+  document.getElementById('caseList').innerHTML = sorted.map(c=>`
+    <div class="ccard ${cls(c)}">
+      <div class="ccard-top">
+        <div class="ccard-title">${c.topic}</div>
+        ${riskBadge(c.risk)}
+      </div>
+      <div class="ccard-meta">${c.dept} · ${c.eventDate}${c.isUrgent?' · <span style="color:#A32D2D;font-weight:500">ต้องทบทวนด่วน</span>':''}</div>
+    </div>
+  `).join('');
+}
+
+function switchTab(tab, el){
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-dept').style.display = tab==='dept'?'':'none';
+  document.getElementById('view-risk').style.display = tab==='risk'?'':'none';
+  document.getElementById('view-cases').style.display = tab==='cases'?'':'none';
+  render();
+}
+
+// Auto-refresh ทุก 5 นาที
+setInterval(()=>{ if(API_URL && API_URL!=='demo') fetchData(); }, 300000);
+</script>
+</body>
+</html>
